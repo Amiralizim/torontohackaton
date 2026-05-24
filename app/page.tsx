@@ -1,8 +1,67 @@
 "use client";
 
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { useWizard } from "./lib/wizard-context";
-import type { Meal, RecipeResponse, SkillLevel } from "./lib/types";
+import type {
+  Meal,
+  MacroBundle,
+  MacroPercentages,
+  RebalanceResponse,
+  RecipeResponse,
+  SkillLevel,
+} from "./lib/types";
+
+type SseHandlers = {
+  onDelta?: (delta: string) => void;
+  onDone?: (result: unknown) => void;
+  onError?: (error: string, raw?: string) => void;
+};
+
+async function consumeSseStream(res: Response, handlers: SseHandlers) {
+  if (!res.body) {
+    handlers.onError?.("no response stream");
+    return;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() ?? "";
+      for (const evt of events) {
+        if (!evt.startsWith("data: ")) continue;
+        let payload: {
+          type?: string;
+          delta?: string;
+          result?: unknown;
+          error?: string;
+          raw?: string;
+        };
+        try {
+          payload = JSON.parse(evt.slice(6));
+        } catch {
+          continue;
+        }
+        if (payload.type === "delta" && typeof payload.delta === "string") {
+          handlers.onDelta?.(payload.delta);
+        } else if (payload.type === "done") {
+          handlers.onDone?.(payload.result);
+        } else if (payload.type === "error") {
+          handlers.onError?.(payload.error ?? "stream error", payload.raw);
+        }
+      }
+    }
+  } catch (err) {
+    handlers.onError?.(
+      err instanceof Error ? err.message : "stream read failed",
+    );
+  }
+}
 
 const levels: { label: SkillLevel; description: string }[] = [
   {
@@ -321,33 +380,53 @@ function StepIngredients() {
 function StepGenerate() {
   const { state } = useWizard();
   const [loading, setLoading] = useState(false);
+  const [streamChars, setStreamChars] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [rawDebug, setRawDebug] = useState<string | null>(null);
   const [result, setResult] = useState<RecipeResponse | null>(null);
 
   async function generate() {
     setLoading(true);
+    setStreamChars(0);
     setError(null);
     setRawDebug(null);
     setResult(null);
+
+    let res: Response;
     try {
-      const res = await fetch("/api/recipes", {
+      res = await fetch("/api/recipes", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(state),
       });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error ?? `HTTP ${res.status}`);
-        if (typeof json.raw === "string") setRawDebug(json.raw);
-      } else {
-        setResult(json as RecipeResponse);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "request failed");
-    } finally {
       setLoading(false);
+      return;
     }
+
+    const ctype = res.headers.get("content-type") ?? "";
+    if (!res.ok || !ctype.startsWith("text/event-stream")) {
+      const json = await res.json().catch(() => ({}));
+      setError(json.error ?? `HTTP ${res.status}`);
+      if (typeof json.raw === "string") setRawDebug(json.raw);
+      setLoading(false);
+      return;
+    }
+
+    let acc = 0;
+    await consumeSseStream(res, {
+      onDelta: (delta) => {
+        acc += delta.length;
+        setStreamChars(acc);
+      },
+      onDone: (result) => setResult(result as RecipeResponse),
+      onError: (err, raw) => {
+        setError(err);
+        if (raw) setRawDebug(raw);
+      },
+    });
+    setLoading(false);
   }
 
   return (
@@ -365,15 +444,28 @@ function StepGenerate() {
             {state.calorieTarget ? ` · ${state.calorieTarget} kcal target` : ""}
           </p>
         )}
-        {!result && (
+        {!result && !loading && (
           <button
             type="button"
             onClick={generate}
-            disabled={loading}
-            className="mt-8 cursor-pointer rounded-full border border-[#595b2f] bg-[#595b2f] px-8 py-3 text-sm font-semibold text-[#f7f5ef] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-8 cursor-pointer rounded-full border border-[#595b2f] bg-[#595b2f] px-8 py-3 text-sm font-semibold text-[#f7f5ef] transition-colors"
           >
-            {loading ? "Cooking up ideas…" : "Generate recipes"}
+            Generate recipes
           </button>
+        )}
+
+        {loading && (
+          <div className="mt-8 flex flex-col items-center gap-3">
+            <div className="flex items-center gap-1 text-base font-medium">
+              <span>Cooking up your menu</span>
+              <span className="dot-anim" aria-hidden>.</span>
+              <span className="dot-anim dot-anim-2" aria-hidden>.</span>
+              <span className="dot-anim dot-anim-3" aria-hidden>.</span>
+            </div>
+            <div className="text-xs opacity-60 tabular-nums">
+              {streamChars > 0 ? `${streamChars} characters streamed` : "Connecting…"}
+            </div>
+          </div>
         )}
         {error && (
           <div className="mt-6 text-left">
@@ -456,6 +548,233 @@ function MealCard({ meal }: { meal: Meal }) {
       <p className="mt-4 text-sm leading-relaxed opacity-90">
         {meal.cooking_instructions}
       </p>
+      <MacroAnalysisPanel meal={meal} />
     </article>
+  );
+}
+
+function formatMacroValue(v: number | string | string[]): string {
+  if (Array.isArray(v)) return v.join(", ");
+  if (typeof v === "number") return Number.isInteger(v) ? String(v) : v.toFixed(1);
+  return v;
+}
+
+function MacroGrid({
+  bundle,
+  percentages,
+}: {
+  bundle: MacroBundle;
+  percentages?: MacroPercentages;
+}) {
+  const core = ["calories", "protein_g", "fat_g", "carbs_g"] as const;
+  const extras = Object.keys(bundle).filter(
+    (k) => !core.includes(k as (typeof core)[number]),
+  );
+  const label: Record<string, string> = {
+    calories: "kcal",
+    protein_g: "protein",
+    fat_g: "fat",
+    carbs_g: "carbs",
+  };
+  return (
+    <div className="space-y-1 text-xs">
+      <div className="grid grid-cols-4 gap-2">
+        {core.map((k) => {
+          const v = bundle[k];
+          return (
+            <div key={k} className="rounded-md border border-[#b99f70]/60 bg-[#f7f1e5] px-2 py-1">
+              <div className="font-medium tabular-nums">
+                {v !== undefined ? formatMacroValue(v) : "—"}
+                {k !== "calories" && v !== undefined ? "g" : ""}
+              </div>
+              <div className="opacity-60">{label[k]}</div>
+            </div>
+          );
+        })}
+      </div>
+      {percentages && (
+        <div className="flex gap-3 opacity-70">
+          <span>P {percentages.protein_pct}%</span>
+          <span>F {percentages.fat_pct}%</span>
+          <span>C {percentages.carbs_pct}%</span>
+        </div>
+      )}
+      {extras.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-1">
+          {extras.map((k) => (
+            <span
+              key={k}
+              className="rounded-full border border-[#b99f70]/60 bg-[#f7f1e5] px-2 py-0.5"
+            >
+              {k}: {formatMacroValue(bundle[k])}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MacroAnalysisPanel({ meal }: { meal: Meal }) {
+  const { state } = useWizard();
+  const [loading, setLoading] = useState(true);
+  const [streamText, setStreamText] = useState("");
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [phase, setPhase] = useState<string>("Waiting to connect");
+  const [result, setResult] = useState<RebalanceResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [rawDebug, setRawDebug] = useState<string | null>(null);
+  const fired = useRef(false);
+
+  useEffect(() => {
+    if (fired.current) return;
+    fired.current = true;
+
+    let cancelled = false;
+    const startedAt = performance.now();
+    const tick = setInterval(() => {
+      if (!cancelled) setElapsedMs(performance.now() - startedAt);
+    }, 100);
+
+    (async () => {
+      setPhase("Sending request…");
+      let res: Response;
+      try {
+        res = await fetch("/api/rebalance", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            meal,
+            dietary: state.dietary ?? [],
+          }),
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "request failed");
+          setLoading(false);
+        }
+        return;
+      }
+
+      setPhase(`Connected · HTTP ${res.status}`);
+      const ctype = res.headers.get("content-type") ?? "";
+      if (!res.ok || !ctype.startsWith("text/event-stream")) {
+        const json = await res.json().catch(() => ({}));
+        if (!cancelled) {
+          setError(json.error ?? `HTTP ${res.status}`);
+          if (typeof json.raw === "string") setRawDebug(json.raw);
+          setLoading(false);
+        }
+        return;
+      }
+
+      setPhase("Streaming…");
+      await consumeSseStream(res, {
+        onDelta: (delta) => {
+          if (cancelled) return;
+          setStreamText((prev) => prev + delta);
+        },
+        onDone: (r) => {
+          if (cancelled) return;
+          setPhase("Parsed JSON");
+          setResult(r as RebalanceResponse);
+        },
+        onError: (err, raw) => {
+          if (cancelled) return;
+          setError(err);
+          if (raw) setRawDebug(raw);
+        },
+      });
+      if (!cancelled) {
+        setLoading(false);
+        setPhase("Done");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      clearInterval(tick);
+    };
+  }, [meal, state.dietary]);
+
+  return (
+    <section className="mt-5 rounded-xl border border-[#b99f70]/70 bg-[#f7f1e5] p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-semibold">Macro analysis</h3>
+        {loading && (
+          <span className="text-xs opacity-60 tabular-nums">
+            {phase} · {streamText.length}c · {(elapsedMs / 1000).toFixed(1)}s
+            <span className="dot-anim ml-1" aria-hidden>.</span>
+            <span className="dot-anim dot-anim-2" aria-hidden>.</span>
+            <span className="dot-anim dot-anim-3" aria-hidden>.</span>
+          </span>
+        )}
+      </div>
+
+      {loading && (
+        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[#b99f70]/40 bg-[#f7f5ef] p-2 text-[10px] leading-snug opacity-80">
+          {streamText || "(no characters received yet)"}
+        </pre>
+      )}
+
+      {error && (
+        <div className="mt-3 text-xs">
+          <p className="text-[#99584f]">Couldn't analyze: {error}</p>
+          {rawDebug && (
+            <details className="mt-2">
+              <summary className="cursor-pointer opacity-70">
+                Show raw model output
+              </summary>
+              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs opacity-80">
+                {rawDebug}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
+
+      {result && (
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
+          <div>
+            <div className="mb-1 text-xs font-medium opacity-70">Original</div>
+            <MacroGrid
+              bundle={result.originalMacros}
+              percentages={result.macroPercentages}
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-xs font-medium opacity-70">Revised</div>
+            <MacroGrid
+              bundle={result.revisedMacros}
+              percentages={result.revisedMacroPercentages}
+            />
+          </div>
+
+          {result.reasoning.length > 0 && (
+            <div className="md:col-span-2">
+              <div className="mb-1 text-xs font-medium opacity-70">Reasoning</div>
+              <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed opacity-90">
+                {result.reasoning.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {result.recommendations.length > 0 && (
+            <div className="md:col-span-2">
+              <div className="mb-1 text-xs font-medium opacity-70">
+                Recommendations
+              </div>
+              <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed">
+                {result.recommendations.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

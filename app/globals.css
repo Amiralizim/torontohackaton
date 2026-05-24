@@ -40,3 +40,16 @@
   --depth: 0;
   --noise: 0;
 }
+
+@keyframes dot-blink {
+  0%, 20% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.dot-anim {
+  animation: dot-blink 1.2s infinite;
+  display: inline-block;
+}
+.dot-anim-2 { animation-delay: 0.2s; }
+.dot-anim-3 { animation-delay: 0.4s; }

@@ -1,57 +1,37 @@
 import { BackboardClient } from "backboard-sdk";
 import type { NextRequest } from "next/server";
-import ingredientsData from "../../data/ingredients.json";
 import {
   STREAM_RESPONSE_HEADERS,
   extractJsonObject,
   sse,
 } from "../../lib/llm-stream";
-import { RECIPE_GENERATOR_PROMPT, buildUserMessage } from "../../lib/prompt";
-import type {
-  Ingredient,
-  RecipeRequest,
-  RecipeResponse,
-} from "../../lib/types";
+import {
+  REBALANCE_PROMPT,
+  buildRebalanceUserMessage,
+} from "../../lib/prompt";
+import type { Meal, RebalanceResponse } from "../../lib/types";
 
-const ingredients = ingredientsData as Ingredient[];
-
-const SYSTEM_PROMPT = `CRITICAL OUTPUT RULE — your entire response must be exactly one JSON object and nothing else. No prose, no preamble, no markdown, no code fences, no trailing commentary. The first character of your response must be "{" and the last must be "}". If you want to reason, do it silently before writing the JSON.
-
-The JSON object must match this TypeScript type:
-type RecipeResponse = {
-  meals: {
-    meal_name: string;
-    ingredients: { food_name: string; amount_g: number }[];
-    totals: { calories: number; protein_g: number; fat_g: number; carbs_g: number };
-    highlight_nutrients: string[];
-    cooking_instructions: string;
-  }[];
-  daily_summary?: {
-    total_calories: number;
-    total_protein_g: number;
-    total_fat_g: number;
-    total_carbs_g: number;
-    percent_protein: number;
-    percent_fat: number;
-    percent_carbs: number;
-    public_guideline_adherence: string;
-  };
+type RebalanceRequestBody = {
+  meal?: Meal;
+  dietary?: string[];
+  mealType?: string;
 };
 
-${RECIPE_GENERATOR_PROMPT}
-
-INGREDIENT DATA TABLE (the only source of nutrition values you may use — every portion and total must be derived from this table):
-${JSON.stringify(ingredients)}`;
-
-function validate(body: unknown): RecipeRequest | { error: string } {
+function validate(body: unknown):
+  | { meal: Meal; dietary?: string[]; mealType?: string }
+  | { error: string } {
   if (!body || typeof body !== "object") return { error: "body must be JSON" };
-  const b = body as Partial<RecipeRequest>;
-  if (!b.skillLevel) return { error: "skillLevel is required" };
-  if (typeof b.confidence !== "number") return { error: "confidence is required" };
-  if (b.mode !== "single_meal" && b.mode !== "full_day") {
-    return { error: "mode must be 'single_meal' or 'full_day'" };
+  const b = body as RebalanceRequestBody;
+  const m = b.meal;
+  if (!m || typeof m !== "object") return { error: "meal is required" };
+  if (typeof m.meal_name !== "string") return { error: "meal.meal_name is required" };
+  if (!Array.isArray(m.ingredients) || m.ingredients.length === 0) {
+    return { error: "meal.ingredients must be a non-empty array" };
   }
-  return b as RecipeRequest;
+  if (!m.totals || typeof m.totals !== "object") {
+    return { error: "meal.totals is required" };
+  }
+  return { meal: m, dietary: b.dietary, mealType: b.mealType };
 }
 
 export async function POST(request: NextRequest) {
@@ -72,8 +52,8 @@ export async function POST(request: NextRequest) {
   const client = new BackboardClient({ apiKey });
 
   const sendOptions: Parameters<BackboardClient["sendMessage"]>[0] = {
-    content: buildUserMessage(parsed),
-    system_prompt: SYSTEM_PROMPT,
+    content: buildRebalanceUserMessage(parsed),
+    system_prompt: REBALANCE_PROMPT,
     llm_provider: process.env.BACKBOARD_PROVIDER ?? "anthropic",
     json_output: true,
     stream: true,
@@ -117,7 +97,7 @@ export async function POST(request: NextRequest) {
 
         const candidate = extractJsonObject(accumulated);
         if (!candidate) {
-          console.error("[recipes] no JSON object in stream:\n", accumulated);
+          console.error("[rebalance] no JSON in stream:\n", accumulated);
           controller.enqueue(
             encoder.encode(
               sse({
@@ -129,10 +109,10 @@ export async function POST(request: NextRequest) {
           );
         } else {
           try {
-            const result = JSON.parse(candidate) as RecipeResponse;
+            const result = JSON.parse(candidate) as RebalanceResponse;
             controller.enqueue(encoder.encode(sse({ type: "done", result })));
           } catch (parseErr) {
-            console.error("[recipes] JSON.parse failed:\n", candidate, parseErr);
+            console.error("[rebalance] JSON.parse failed:\n", candidate, parseErr);
             controller.enqueue(
               encoder.encode(
                 sse({

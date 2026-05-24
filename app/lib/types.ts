@@ -72,3 +72,22 @@ export type RecipeResponse = {
   meals: Meal[];
   daily_summary?: DailySummary;
 };
+
+export type MacroPercentages = {
+  protein_pct: number;
+  carbs_pct: number;
+  fat_pct: number;
+};
+
+export type MacroBundle = Record<string, number | string | string[]>;
+
+export type RebalanceResponse = {
+  originalMacros: MacroBundle;
+  macroPercentages: MacroPercentages;
+  otherVars: Record<string, unknown>;
+  reasoning: string[];
+  recommendations: string[];
+  revisedMacros: MacroBundle;
+  revisedMacroPercentages: MacroPercentages;
+  revisedOtherVars: Record<string, unknown>;
+};

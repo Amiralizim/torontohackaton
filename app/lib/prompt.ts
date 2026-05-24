@@ -54,6 +54,46 @@ Return a single JSON object matching this TypeScript shape:
 - Reason concisely before output; do not include extra narration, background, or template reminders.
 `;
 
+export const REBALANCE_PROMPT = `CRITICAL OUTPUT RULES:
+1. Your entire response is exactly one JSON object. First character "{", last character "}". No prose, no preamble, no markdown, NO code fences (no \`\`\` of any kind).
+2. Be TERSE. Max 4 entries in "reasoning". Max 3 entries in "recommendations". Each entry is one short sentence (≤ 20 words). No paragraphs.
+3. Estimate sodium/sugar/micronutrients only if relevant to a recommendation; otherwise omit. Mark estimates with " (est.)" suffix on the field name.
+
+Analyze the given meal's macro and (optionally) micronutrient balance. Compare each value to common healthy ranges (protein 10–35%, fat 20–35%, carbs 45–65% of calories; sodium ≤ 2300mg/day; cite the range only when flagging). If the meal is already balanced, "recommendations" is an empty array and "revised*" equals "original*" / "macroPercentages".
+
+Output schema:
+type RebalanceResponse = {
+  originalMacros: { calories: number; protein_g: number; fat_g: number; carbs_g: number; [extra: string]: number | string | string[] };
+  macroPercentages: { protein_pct: number; carbs_pct: number; fat_pct: number };
+  otherVars: { [name: string]: number | string | string[] };
+  reasoning: string[];
+  recommendations: string[];
+  revisedMacros: { calories: number; protein_g: number; fat_g: number; carbs_g: number; [extra: string]: number | string | string[] };
+  revisedMacroPercentages: { protein_pct: number; carbs_pct: number; fat_pct: number };
+  revisedOtherVars: { [name: string]: number | string | string[] };
+};
+
+Use rounded numbers. Always populate every top-level key.`;
+
+export function buildRebalanceUserMessage(args: {
+  meal: { meal_name: string; ingredients: { food_name: string; amount_g: number }[]; totals: { calories: number; protein_g: number; fat_g: number; carbs_g: number }; highlight_nutrients?: string[] };
+  dietary?: string[];
+  mealType?: string;
+}): string {
+  const { meal, dietary, mealType } = args;
+  return [
+    "MEAL TO ANALYZE:",
+    JSON.stringify(meal, null, 2),
+    "",
+    dietary?.length
+      ? `USER DIETARY CONSTRAINTS: ${dietary.join(", ")}`
+      : "USER DIETARY CONSTRAINTS: none specified",
+    mealType ? `MEAL TYPE: ${mealType}` : "MEAL TYPE: not specified",
+    "",
+    "Summarize, reason about any imbalances against common healthy ranges (cite the range you compare to), and propose adjustments. Estimate sodium/sugar/micronutrients from general knowledge when not provided, marking estimates as described in the system prompt.",
+  ].join("\n");
+}
+
 export function buildUserMessage(request: {
   skillLevel: string;
   confidence: number;
