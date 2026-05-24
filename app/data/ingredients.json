@@ -1,0 +1,35 @@
+[
+  { "food_name": "Oats",            "food_group": "grain",     "per_100g": { "calories": 379, "protein_g": 13.2, "fat_g": 6.5,  "carbs_g": 67.7, "fiber_g": 10.1 } },
+  { "food_name": "Brown Rice",      "food_group": "grain",     "per_100g": { "calories": 367, "protein_g": 7.5,  "fat_g": 2.7,  "carbs_g": 76.2, "fiber_g": 3.4  } },
+  { "food_name": "Quinoa",          "food_group": "grain",     "per_100g": { "calories": 368, "protein_g": 14.1, "fat_g": 6.1,  "carbs_g": 64.2, "fiber_g": 7.0  } },
+  { "food_name": "Whole Wheat Bread","food_group": "grain",    "per_100g": { "calories": 247, "protein_g": 13.0, "fat_g": 3.4,  "carbs_g": 41.0, "fiber_g": 7.0  } },
+
+  { "food_name": "Chicken Breast",  "food_group": "protein",   "per_100g": { "calories": 165, "protein_g": 31.0, "fat_g": 3.6,  "carbs_g": 0.0,  "fiber_g": 0.0  } },
+  { "food_name": "Salmon",          "food_group": "protein",   "per_100g": { "calories": 208, "protein_g": 20.4, "fat_g": 13.4, "carbs_g": 0.0,  "fiber_g": 0.0  } },
+  { "food_name": "Eggs",            "food_group": "protein",   "per_100g": { "calories": 155, "protein_g": 13.0, "fat_g": 11.0, "carbs_g": 1.1,  "fiber_g": 0.0  } },
+  { "food_name": "Tofu",            "food_group": "protein",   "per_100g": { "calories": 76,  "protein_g": 8.0,  "fat_g": 4.8,  "carbs_g": 1.9,  "fiber_g": 0.3  } },
+
+  { "food_name": "Greek Yogurt",    "food_group": "dairy",     "per_100g": { "calories": 59,  "protein_g": 10.0, "fat_g": 0.4,  "carbs_g": 3.6,  "fiber_g": 0.0  } },
+  { "food_name": "Cottage Cheese",  "food_group": "dairy",     "per_100g": { "calories": 98,  "protein_g": 11.1, "fat_g": 4.3,  "carbs_g": 3.4,  "fiber_g": 0.0  } },
+  { "food_name": "Milk (2%)",       "food_group": "dairy",     "per_100g": { "calories": 50,  "protein_g": 3.3,  "fat_g": 2.0,  "carbs_g": 4.8,  "fiber_g": 0.0  } },
+
+  { "food_name": "Blueberries",     "food_group": "fruit",     "per_100g": { "calories": 57,  "protein_g": 0.7,  "fat_g": 0.3,  "carbs_g": 14.5, "fiber_g": 2.4  } },
+  { "food_name": "Banana",          "food_group": "fruit",     "per_100g": { "calories": 89,  "protein_g": 1.1,  "fat_g": 0.3,  "carbs_g": 22.8, "fiber_g": 2.6  } },
+  { "food_name": "Apple",           "food_group": "fruit",     "per_100g": { "calories": 52,  "protein_g": 0.3,  "fat_g": 0.2,  "carbs_g": 13.8, "fiber_g": 2.4  } },
+  { "food_name": "Avocado",         "food_group": "fruit",     "per_100g": { "calories": 160, "protein_g": 2.0,  "fat_g": 14.7, "carbs_g": 8.5,  "fiber_g": 6.7  } },
+
+  { "food_name": "Spinach",         "food_group": "vegetable", "per_100g": { "calories": 23,  "protein_g": 2.9,  "fat_g": 0.4,  "carbs_g": 3.6,  "fiber_g": 2.2  } },
+  { "food_name": "Broccoli",        "food_group": "vegetable", "per_100g": { "calories": 34,  "protein_g": 2.8,  "fat_g": 0.4,  "carbs_g": 6.6,  "fiber_g": 2.6  } },
+  { "food_name": "Sweet Potato",    "food_group": "vegetable", "per_100g": { "calories": 86,  "protein_g": 1.6,  "fat_g": 0.1,  "carbs_g": 20.1, "fiber_g": 3.0  } },
+  { "food_name": "Bell Pepper",     "food_group": "vegetable", "per_100g": { "calories": 31,  "protein_g": 1.0,  "fat_g": 0.3,  "carbs_g": 6.0,  "fiber_g": 2.1  } },
+  { "food_name": "Carrot",          "food_group": "vegetable", "per_100g": { "calories": 41,  "protein_g": 0.9,  "fat_g": 0.2,  "carbs_g": 9.6,  "fiber_g": 2.8  } },
+  { "food_name": "Tomato",          "food_group": "vegetable", "per_100g": { "calories": 18,  "protein_g": 0.9,  "fat_g": 0.2,  "carbs_g": 3.9,  "fiber_g": 1.2  } },
+
+  { "food_name": "Almonds",         "food_group": "fat",       "per_100g": { "calories": 579, "protein_g": 21.2, "fat_g": 49.9, "carbs_g": 21.6, "fiber_g": 12.5 } },
+  { "food_name": "Olive Oil",       "food_group": "fat",       "per_100g": { "calories": 884, "protein_g": 0.0,  "fat_g": 100.0,"carbs_g": 0.0,  "fiber_g": 0.0  } },
+  { "food_name": "Peanut Butter",   "food_group": "fat",       "per_100g": { "calories": 588, "protein_g": 25.0, "fat_g": 50.0, "carbs_g": 20.0, "fiber_g": 6.0  } },
+
+  { "food_name": "Black Beans",     "food_group": "legume",    "per_100g": { "calories": 132, "protein_g": 8.9,  "fat_g": 0.5,  "carbs_g": 23.7, "fiber_g": 8.7  } },
+  { "food_name": "Chickpeas",       "food_group": "legume",    "per_100g": { "calories": 164, "protein_g": 8.9,  "fat_g": 2.6,  "carbs_g": 27.4, "fiber_g": 7.6  } },
+  { "food_name": "Lentils",         "food_group": "legume",    "per_100g": { "calories": 116, "protein_g": 9.0,  "fat_g": 0.4,  "carbs_g": 20.1, "fiber_g": 7.9  } }
+]
