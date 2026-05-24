@@ -1,26 +1,42 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@plugin "daisyui" {
+  themes: hackathon;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@plugin "daisyui/theme" {
+  name: "hackathon";
+  default: true;
+  color-scheme: light;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+  --color-base-100: #f7f1e5;
+  --color-base-200: #ece2cf;
+  --color-base-300: #e2d8c1;
+  --color-base-content: #3f382b;
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  --color-primary: #616333;
+  --color-primary-content: #f8f1e2;
+  --color-secondary: #b5a97c;
+  --color-secondary-content: #3f382b;
+  --color-accent: #9a9162;
+  --color-accent-content: #f7f1e5;
+  --color-neutral: #f3e7d0;
+  --color-neutral-content: #3f382b;
+
+  --color-info: #6b86a3;
+  --color-info-content: #f8f9fb;
+  --color-success: #6f7f4a;
+  --color-success-content: #f8f8ea;
+  --color-warning: #b48738;
+  --color-warning-content: #2c220e;
+  --color-error: #99584f;
+  --color-error-content: #fff5f4;
+
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }
